@@ -1,5 +1,4 @@
-
-Copyright (c) 2006-2020 Near et al
+Copyright (c) 2004-2021 ares team, Near et al
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
