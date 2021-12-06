@@ -2,13 +2,12 @@
 MAKEFLAGS := Rr
 .SUFFIXES:
 
-# An empty variable to defeat make functions that trim whitespace.
-[empty] =
 [0-9] = 0 1 2 3 4 5 6 7 8 9
 [A-Z] = A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
 [a-z] = a b c d e f g h i j k l m n o p q r s t u v w x y z
 [markup] = ` ~ ! @ \# $$ % ^ & * ( ) - _ = + [ { ] } \ | ; : ' " , < . > / ?
 [all] = $([0-9]) $([A-Z]) $([a-z]) $([markup])
+[empty] :=
 [space] := $([empty]) $([empty])
 
 # platform detection
@@ -49,22 +48,22 @@ else
 endif
 
 compiler.c      = $(compiler) -x c -std=c11
-compiler.cpp    = $(compiler) -x c++ -std=c++17
+compiler.cpp    = $(compiler) -x c++ -std=c++17 -fno-operator-names
 compiler.objc   = $(compiler) -x objective-c -std=c11
-compiler.objcpp = $(compiler) -x objective-c++ -std=c++17
+compiler.objcpp = $(compiler) -x objective-c++ -std=c++17 -fno-operator-names
 
 flags.c      = -x c -std=c11
-flags.cpp    = -x c++ -std=c++17
+flags.cpp    = -x c++ -std=c++17 -fno-operator-names
 flags.objc   = -x objective-c -std=c11
-flags.objcpp = -x objective-c++ -std=c++17
+flags.objcpp = -x objective-c++ -std=c++17 -fno-operator-names
 flags.deps   = -MMD -MP -MF $(@:.o=.d)
 
 # compiler detection
 ifeq ($(compiler),)
   ifeq ($(platform),windows)
     compiler := g++
-    compiler.cpp = $(compiler) -x c++ -std=gnu++17
-    flags.cpp = -x c++ -std=gnu++17
+    compiler.cpp = $(compiler) -x c++ -std=gnu++17 -fno-operator-names
+    flags.cpp = -x c++ -std=gnu++17 -fno-operator-names
   else ifeq ($(platform),macos)
     compiler := clang++
   else ifeq ($(platform),linux)
@@ -78,21 +77,45 @@ endif
 
 # build optimization levels
 ifeq ($(build),debug)
-  flags += -Og -g -DBUILD_DEBUG
+  symbols = true
+  flags += -Og -DBUILD_DEBUG
 else ifeq ($(build),stable)
+  lto = true
   flags += -O1 -DBUILD_STABLE
-else ifeq ($(build),size)
-  flags += -Os -DBUILD_SIZE
+else ifeq ($(build),minified)
+  lto = true
+  flags += -Os -DBUILD_MINIFIED
 else ifeq ($(build),release)
+  lto = true
   flags += -O2 -DBUILD_RELEASE
-else ifeq ($(build),performance)
-  flags += -O3 -DBUILD_PERFORMANCE
+else ifeq ($(build),optimized)
+  lto = true
+  flags += -O3 -fomit-frame-pointer -DBUILD_OPTIMIZED
+else
+  $(error unrecognized build type.)
+endif
+
+# debugging information
+ifeq ($(symbols),true)
+  flags += -g
+  ifeq ($(platform),windows)
+    ifeq ($(findstring clang++,$(compiler)),clang++)
+      flags   += -gcodeview
+      options += -Wl,-pdb=
+    endif
+  endif
 endif
 
 # link-time optimization
 ifeq ($(lto),true)
-  flags   += -fwhole-program -flto -fno-fat-lto-objects
-  options += -fwhole-program -flto=jobserver
+  flags   += -flto
+  options += -fwhole-program
+  ifneq ($(findstring clang++,$(compiler)),clang++)
+    flags   += -fwhole-program -fno-fat-lto-objects
+    options += -flto=jobserver
+  else
+    options += -flto=thin
+  endif
 endif
 
 # openmp support
@@ -106,15 +129,16 @@ endif
 
 # clang settings
 ifeq ($(findstring clang++,$(compiler)),clang++)
-  flags += -fno-operator-names -fno-strict-aliasing -fwrapv -Wno-everything
+  flags += -fno-strict-aliasing -fwrapv
 # gcc settings
 else ifeq ($(findstring g++,$(compiler)),g++)
-  flags += -fno-operator-names -fno-strict-aliasing -fwrapv -Wno-trigraphs
+  flags += -fno-strict-aliasing -fwrapv -Wno-trigraphs
 endif
 
 # windows settings
 ifeq ($(platform),windows)
   options += -mthreads -lpthread -lws2_32 -lole32
+  options += $(if $(findstring clang++,$(compiler)),-fuse-ld=lld)
   options += $(if $(findstring g++,$(compiler)),-static -static-libgcc -static-libstdc++)
   options += $(if $(findstring true,$(console)),-mconsole,-mwindows)
   windres := windres
@@ -122,8 +146,14 @@ endif
 
 # macos settings
 ifeq ($(platform),macos)
-  flags   += -stdlib=libc++
-  options += -lc++ -lobjc
+  flags   += -stdlib=libc++ -mmacosx-version-min=10.9 -Wno-auto-var-id -fobjc-arc
+  options += -lc++ -lobjc -mmacosx-version-min=10.9
+  # allow mprotect() on dynamic recompiler code blocks
+  options += -Wl,-segprot,__DATA,rwx,rw
+  ifneq ($(local),true)
+    flags   += -arch x86_64
+    options += -arch x86_64
+  endif
 endif
 
 # linux settings

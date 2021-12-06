@@ -1,7 +1,7 @@
 #pragma once
 
 /* Document Markup Language (DML) v1.0 parser
- * revision 0.05
+ * revision 0.06
  */
 
 #include <nall/location.hpp>
@@ -39,12 +39,13 @@ private:
   };
   vector<Attribute> attributes;
 
-  auto parseDocument(const string& filedata, const string& pathname, uint depth) -> bool;
-  auto parseBlock(string& block, const string& pathname, uint depth) -> bool;
-  auto count(const string& text, char value) -> uint;
+  auto parseDocument(const string& filedata, const string& pathname, u32 depth) -> bool;
+  auto parseBlock(string& block, const string& pathname, u32 depth) -> bool;
+  auto count(const string& text, char value) -> u32;
 
   auto address(string text) -> string;
   auto escape(const string& text) -> string;
+  auto anchor(const string& text) -> string;
   auto markup(const string& text) -> string;
 };
 
@@ -70,7 +71,7 @@ inline auto DML::parse(const string& filename) -> string {
   return state.output;
 }
 
-inline auto DML::parseDocument(const string& filedata, const string& pathname, uint depth) -> bool {
+inline auto DML::parseDocument(const string& filedata, const string& pathname, u32 depth) -> bool {
   if(depth >= 100) return false;  //attempt to prevent infinite recursion with reasonable limit
 
   auto blocks = filedata.split("\n\n");
@@ -78,7 +79,7 @@ inline auto DML::parseDocument(const string& filedata, const string& pathname, u
   return true;
 }
 
-inline auto DML::parseBlock(string& block, const string& pathname, uint depth) -> bool {
+inline auto DML::parseBlock(string& block, const string& pathname, u32 depth) -> bool {
   if(!block.stripRight()) return true;
   auto lines = block.split("\n");
 
@@ -111,9 +112,9 @@ inline auto DML::parseBlock(string& block, const string& pathname, uint depth) -
 
   //header
   else if(auto depth = count(block, '#')) {
-    auto content = slice(lines.takeLeft(), depth + 1).split("::", 1L).strip();
-    auto data = markup(content[0]);
-    auto name = escape(content(1, data.hash()));
+    auto content = slice(lines.takeLeft(), depth + 1);
+    auto data = markup(content);
+    auto name = anchor(content);
     if(depth <= 5) {
       state.output.append("<h", depth + 1, " id=\"", name, "\">", data);
       for(auto& line : lines) {
@@ -127,14 +128,14 @@ inline auto DML::parseBlock(string& block, const string& pathname, uint depth) -
   //navigation
   else if(count(block, '-')) {
     state.output.append("<nav>\n");
-    uint level = 0;
+    u32 level = 0;
     for(auto& line : lines) {
       if(auto depth = count(line, '-')) {
         while(level < depth) level++, state.output.append("<ul>\n");
         while(level > depth) level--, state.output.append("</ul>\n");
-        auto content = slice(line, depth + 1).split("::", 1L).strip();
-        auto data = markup(content[0]);
-        auto name = escape(content(1, data.hash()));
+        auto content = slice(line, depth + 1);
+        auto data = markup(content);
+        auto name = anchor(content);
         state.output.append("<li><a href=\"#", name, "\">", data, "</a></li>\n");
       }
     }
@@ -144,7 +145,7 @@ inline auto DML::parseBlock(string& block, const string& pathname, uint depth) -
 
   //list
   else if(count(block, '*')) {
-    uint level = 0;
+    u32 level = 0;
     for(auto& line : lines) {
       if(auto depth = count(line, '*')) {
         while(level < depth) level++, state.output.append("<ul>\n");
@@ -158,7 +159,7 @@ inline auto DML::parseBlock(string& block, const string& pathname, uint depth) -
 
   //quote
   else if(count(block, '>')) {
-    uint level = 0;
+    u32 level = 0;
     for(auto& line : lines) {
       if(auto depth = count(line, '>')) {
         while(level < depth) level++, state.output.append("<blockquote>\n");
@@ -198,8 +199,8 @@ inline auto DML::parseBlock(string& block, const string& pathname, uint depth) -
   return true;
 }
 
-inline auto DML::count(const string& text, char value) -> uint {
-  for(uint n = 0; n < text.size(); n++) {
+inline auto DML::count(const string& text, char value) -> u32 {
+  for(u32 n = 0; n < text.size(); n++) {
     if(text[n] != value) {
       if(text[n] == ' ') return n;
       break;
@@ -243,6 +244,16 @@ inline auto DML::escape(const string& text) -> string {
   return output;
 }
 
+inline auto DML::anchor(const string& text) -> string {
+  string output;
+  for(char c : text) {
+    if(c >= 'a' && c <= 'z') { output.append(c); continue; }
+    if(c >= 'A' && c <= 'Z') { output.append(char(c + 0x20)); continue; }
+    if(!output.endsWith("-")) output.append('-');
+  }
+  return output.trim("-", "-");
+}
+
 inline auto DML::markup(const string& s) -> string {
   string t;
 
@@ -252,10 +263,10 @@ inline auto DML::markup(const string& s) -> string {
   boolean deletion;
   boolean code;
 
-  maybe<uint> link;
-  maybe<uint> image;
+  maybe<u32> link;
+  maybe<u32> image;
 
-  for(uint n = 0; n < s.size();) {
+  for(u32 n = 0; n < s.size();) {
     char a = s[n];
     char b = s[n + 1];
 
@@ -290,11 +301,12 @@ inline auto DML::markup(const string& s) -> string {
       string name = list.size() == 2 ? list.first() : uri.split("//", 1L).last();
       list = side(1).split("; ");
       boolean link, title, caption;
-      string width, height;
+      string Class, width, height;
       for(auto p : list) {
         if(p == "link") { link = true; continue; }
         if(p == "title") { title = true; continue; }
         if(p == "caption") { caption = true; continue; }
+        if(p.beginsWith("class:")) { p.trimLeft("class:", 1L); Class = p.strip(); continue; }
         if(p.beginsWith("width:")) { p.trimLeft("width:", 1L); width = p.strip(); continue; }
         if(p.beginsWith("height:")) { p.trimLeft("height:", 1L); height = p.strip(); continue; }
       }
@@ -304,6 +316,7 @@ inline auto DML::markup(const string& s) -> string {
         if(link) t.append("<a href=\"", escape(uri), "\">");
         t.append("<img loading=\"lazy\" src=\"", escape(uri), "\" alt=\"", escape(name ? name : uri.hash()), "\"");
         if(title) t.append(" title=\"", escape(name), "\"");
+        if(Class) t.append(" class=\"", escape(Class), "\"");
         if(width) t.append(" width=\"", escape(width), "\"");
         if(height) t.append(" height=\"", escape(height), "\"");
         t.append(">\n");
@@ -314,6 +327,7 @@ inline auto DML::markup(const string& s) -> string {
         if(link) t.append("<a href=\"", escape(uri), "\">");
         t.append("<img loading=\"lazy\" src=\"", escape(uri), "\" alt=\"", escape(name ? name : uri.hash()), "\"");
         if(title) t.append(" title=\"", escape(name), "\"");
+        if(Class) t.append(" class=\"", escape(Class), "\"");
         if(width) t.append(" width=\"", escape(width), "\"");
         if(height) t.append(" height=\"", escape(height), "\"");
         t.append(">");

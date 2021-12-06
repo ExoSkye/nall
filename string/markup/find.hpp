@@ -6,7 +6,7 @@ inline auto ManagedNode::_evaluate(string query) const -> bool {
   if(!query) return true;
 
   for(auto& rule : query.split(",")) {
-    enum class Comparator : uint { ID, EQ, NE, LT, LE, GT, GE };
+    enum class Comparator : u32 { ID, EQ, NE, LT, LE, GT, GE, NF };
     auto comparator = Comparator::ID;
          if(rule.match("*!=*")) comparator = Comparator::NE;
     else if(rule.match("*<=*")) comparator = Comparator::LE;
@@ -14,10 +14,17 @@ inline auto ManagedNode::_evaluate(string query) const -> bool {
     else if(rule.match ("*=*")) comparator = Comparator::EQ;
     else if(rule.match ("*<*")) comparator = Comparator::LT;
     else if(rule.match ("*>*")) comparator = Comparator::GT;
+    else if(rule.match  ("!*")) comparator = Comparator::NF;
 
     if(comparator == Comparator::ID) {
       if(_find(rule).size()) continue;
       return false;
+    }
+
+    if(comparator == Comparator::NF) {
+      rule.trimLeft("!", 1L);
+      if(_find(rule).size()) return false;
+      continue;
     }
 
     vector<string> side;
@@ -57,7 +64,7 @@ inline auto ManagedNode::_find(const string& query) const -> vector<Node> {
 
   auto path = query.split("/");
   string name = path.take(0), rule;
-  uint lo = 0u, hi = ~0u;
+  u32 lo = 0u, hi = ~0u;
 
   if(name.match("*[*]")) {
     auto p = name.trimRight("]", 1L).split("[", 1L);
@@ -77,7 +84,7 @@ inline auto ManagedNode::_find(const string& query) const -> vector<Node> {
     rule = p(1);
   }
 
-  uint position = 0;
+  u32 position = 0;
   for(auto& node : _children) {
     if(!node->_name.match(name)) continue;
     if(!node->_evaluate(rule)) continue;

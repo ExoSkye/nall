@@ -61,6 +61,11 @@ namespace Math {
 
 #if defined(ARCHITECTURE_X86) || defined(ARCHITECTURE_AMD64)
   #include <immintrin.h>
+  #undef _serialize
+#endif
+
+#if !defined(__has_builtin)
+  #define __has_builtin(x) 0
 #endif
 
 #if defined(COMPILER_MICROSOFT)
@@ -116,49 +121,64 @@ namespace Math {
   #define bswap32(value) __builtin_bswap32(value)
   #define bswap64(value) __builtin_bswap64(value)
   #if defined(__SIZEOF_INT128__)
-  inline auto bswap128(uint128_t value) -> uint128_t {
+  inline auto bswap128(u128 value) -> u128 {
     #if defined(__SSSE3__)
     static const __m128i shuffle = _mm_setr_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
-    return reinterpret_cast<uint128_t>(_mm_shuffle_epi8(reinterpret_cast<__m128i>(value), shuffle));
+    return reinterpret_cast<u128>(_mm_shuffle_epi8(reinterpret_cast<__m128i>(value), shuffle));
     #else
-    return (uint128_t)__builtin_bswap64(value) << 64 | __builtin_bswap64(value >> 64);
+    return (u128)__builtin_bswap64(value) << 64 | __builtin_bswap64(value >> 64);
     #endif
   }
   #endif
   #define likely(expression) __builtin_expect(bool(expression), true)
   #define unlikely(expression) __builtin_expect(bool(expression), false)
 #else
-  inline auto bswap16(uint16_t value) -> uint16_t {
+  inline auto bswap16(u16 value) -> u16 {
     return value << 8 | value >> 8;
   }
-  inline auto bswap32(uint32_t value) -> uint32_t {
-    return (uint32_t)bswap16(value) << 16 | bswap16(value >> 16);
+  inline auto bswap32(u32 value) -> u32 {
+    return (u32)bswap16(value) << 16 | bswap16(value >> 16);
   }
-  inline auto bswap64(uint64_t value) -> uint64_t {
-    return (uint64_t)bswap32(value) << 32 | bswap32(value >> 32);
+  inline auto bswap64(u64 value) -> u64 {
+    return (u64)bswap32(value) << 32 | bswap32(value >> 32);
   }
   #if defined(__SIZEOF_INT128__)
-  inline auto bswap128(uint128_t value) -> uint128_t {
-    return (uint128_t)bswap64(value) << 64 | bswap64(value >> 64);
+  inline auto bswap128(u128 value) -> u128 {
+    return (u128)bswap64(value) << 64 | bswap64(value >> 64);
   }
   #endif
   #define likely(expression) expression
   #define unlikely(expression) expression
 #endif
 
+//notify the processor/operating system that this thread is currently awaiting an event (eg a spinloop)
+//calling this function aims to avoid consuming 100% CPU resources on the active thread during spinloops
+inline auto spinloop() -> void {
+  #if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
+    #if defined(ARCHITECTURE_X86) || defined(ARCHITECTURE_AMD64)
+      __builtin_ia32_pause();
+      return;
+    #endif
+  #endif
+  usleep(1);
+}
+
 #if defined(PLATFORM_MACOS)
   #define MSG_NOSIGNAL 0
 #endif
 
 #if defined(COMPILER_CLANG) || defined(COMPILER_GCC)
-  #define noinline   __attribute__((noinline))
-  #define alwaysinline  inline __attribute__((always_inline))
+  #define no_optimize __attribute__((optnone))
+  #define noinline __attribute__((noinline))
+  #define alwaysinline inline __attribute__((always_inline))
 #elif defined(COMPILER_MICROSOFT)
-  #define noinline   __declspec(noinline)
-  #define alwaysinline  inline __forceinline
+  #define no_optimize
+  #define noinline __declspec(noinline)
+  #define alwaysinline inline __forceinline
 #else
+  #define no_optimize
   #define noinline
-  #define alwaysinline  inline
+  #define alwaysinline inline
 #endif
 
 //P0627: [[unreachable]] -- impossible to simulate with identical syntax, must omit brackets ...
@@ -166,6 +186,10 @@ namespace Math {
   #define unreachable __builtin_unreachable()
 #else
   #define unreachable throw
+#endif
+
+#if defined(COMPILER_GCC)
+  #undef _serialize
 #endif
 
 #define export $export

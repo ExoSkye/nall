@@ -6,8 +6,9 @@ namespace nall::Clipboard {
 
 inline auto clear() -> void {
   XDisplay display;
-  XlibAtom atom = XInternAtom(display, "CLIPBOARD", XlibFalse);
-  XSetSelectionOwner(display, atom, XlibNone, XlibCurrentTime);
+  if(auto atom = XInternAtom(display, "CLIPBOARD", XlibTrue)) {
+    XSetSelectionOwner(display, atom, XlibNone, XlibCurrentTime);
+  }
 }
 
 }
