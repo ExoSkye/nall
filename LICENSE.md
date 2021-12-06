@@ -1,5 +1,5 @@
 
-Copyright (c) 2021, ProtoByter <bobrow2006@gmail.com>
+Copyright (c) 2006-2020 Near et al
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
