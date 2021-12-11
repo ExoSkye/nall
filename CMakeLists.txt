@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 project(nall LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17)
+
 add_library(nall INTERFACE)
 target_include_directories(nall INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(nall INTERFACE ${CMAKE_SOURCE_DIR})
