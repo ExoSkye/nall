@@ -177,6 +177,8 @@ namespace nall {
     static constexpr bool arm32 = 0;
     static constexpr bool ppc64 = 0;
     static constexpr bool ppc32 = 0;
+    static constexpr bool s390x = 0;
+    static constexpr bool riscv64 = 0;
   };
 #elif defined(__amd64__) || defined(_M_AMD64)
   #define ARCHITECTURE_AMD64
@@ -187,6 +189,8 @@ namespace nall {
     static constexpr bool arm32 = 0;
     static constexpr bool ppc64 = 0;
     static constexpr bool ppc32 = 0;
+    static constexpr bool s390x = 0;
+    static constexpr bool riscv64 = 0;
   };
 #elif defined(__aarch64__)
   #define ARCHITECTURE_ARM64
@@ -197,6 +201,8 @@ namespace nall {
     static constexpr bool arm32 = 0;
     static constexpr bool ppc64 = 0;
     static constexpr bool ppc32 = 0;
+    static constexpr bool s390x = 0;
+    static constexpr bool riscv64 = 0;
   };
 #elif defined(__arm__)
   #define ARCHITECTURE_ARM32
@@ -207,6 +213,8 @@ namespace nall {
     static constexpr bool arm32 = 1;
     static constexpr bool ppc64 = 0;
     static constexpr bool ppc32 = 0;
+    static constexpr bool s390x = 0;
+    static constexpr bool riscv64 = 0;
   };
 #elif defined(__ppc64__) || defined(_ARCH_PPC64)
   #define ARCHITECTURE_PPC64
@@ -217,6 +225,8 @@ namespace nall {
     static constexpr bool arm32 = 0;
     static constexpr bool ppc64 = 1;
     static constexpr bool ppc32 = 0;
+    static constexpr bool s390x = 0;
+    static constexpr bool riscv64 = 0;
   };
 #elif defined(__ppc__) || defined(_ARCH_PPC) || defined(_M_PPC)
   #define ARCHITECTURE_PPC32
@@ -227,6 +237,34 @@ namespace nall {
     static constexpr bool arm32 = 0;
     static constexpr bool ppc64 = 0;
     static constexpr bool ppc32 = 1;
+    static constexpr bool s390x = 0;
+    static constexpr bool riscv64 = 0;
+  };
+#elif defined(__riscv)
+  #define ARCHITECTURE_RISCV64
+  #define NO_RECOMPILER
+  struct Architecture {
+    static constexpr bool x86   = 0;
+    static constexpr bool amd64 = 0;
+    static constexpr bool arm64 = 0;
+    static constexpr bool arm32 = 0;
+    static constexpr bool ppc64 = 0;
+    static constexpr bool ppc32 = 0;
+    static constexpr bool s390x = 0;
+    static constexpr bool riscv64 = 1;
+  };
+#elif defined(__s390x__)
+  #define ARCHITECTURE_S390X
+  #define NO_RECOMPILER
+  struct Architecture {
+    static constexpr bool x86   = 0;
+    static constexpr bool amd64 = 0;
+    static constexpr bool arm64 = 0;
+    static constexpr bool arm32 = 0;
+    static constexpr bool ppc64 = 0;
+    static constexpr bool ppc32 = 0;
+    static constexpr bool s390x = 1;
+    static constexpr bool riscv64 = 0;
   };
 #else
   #error "unable to detect architecture"
